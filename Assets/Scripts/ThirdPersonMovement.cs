@@ -19,8 +19,7 @@ public class ThirdPersonMovement : MonoBehaviour
     [SerializeField] private float velocity = 0f;
     [SerializeField] private float acceleration = 0.1f;
     [SerializeField] private float deceleration = 0.1f;
-    [SerializeField] private float JumpTimeout = 1f;
-
+    
     private int velocityHash;
 
     //Set Character Controller
@@ -36,15 +35,12 @@ public class ThirdPersonMovement : MonoBehaviour
     
     public LayerMask GroundLayers;
 
+    public static bool IsInputEnabled;
 
- //   void SetAnimationState(string state, bool condition)
- //   {
- //       anim.SetBool
- //   }
-    // Start is called before the first frame update
+ // Start is called before the first frame update
     void Start()
     {
-        //Getting Player Object Animator Component
+        IsInputEnabled = true;        
         anim = GetComponent<Animator>();
         velocityHash = Animator.StringToHash("Velocity");
         characterController.detectCollisions = true;
@@ -53,23 +49,31 @@ public class ThirdPersonMovement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        HandleInput();
-        GroundedCheck();
+        if (IsInputEnabled)
+        {
+            if (IsGrounded)
+            {
+                Move();
+            }
+
+            GroundedCheck();
+            Jump();
+        }             
     }
 
 
-    void HandleInput()
-    {
-                //Getting Keyboard Input
+    void Move()
+    {        
+        //Getting Keyboard Input
         float Horizontal = Input.GetAxis("Horizontal");
         float Vertical = Input.GetAxis("Vertical");
         //Storing Keyboard Input into a Direction Vector
         Vector3 Direction = new Vector3(Horizontal, 0f, Vertical).normalized;
-
+        
         if(Input.GetButton("Fire1"))
         {
             //Set Animation transition
-            if (IsPunch != true)
+            if (!IsPunch)
             {
                 anim.SetBool("IsPunch", true);
                 IsPunch = true;
@@ -79,7 +83,7 @@ public class ThirdPersonMovement : MonoBehaviour
         else
         {
             //Set Animation transition
-            if (IsPunch == true)
+            if (IsPunch)
             {
                 anim.SetBool("IsPunch", false);
                 IsPunch = false;
@@ -102,17 +106,16 @@ public class ThirdPersonMovement : MonoBehaviour
             Vector3 moveDir = Quaternion.Euler(0f, TargetAngle, 0f) * Vector3.forward;
             characterController.Move(moveDir.normalized * moveSpeed * Time.deltaTime);
             //Set Animation transition
-            if (IsMoving != true)
+            if (!IsMoving)
             {
                 anim.SetBool("IsMoving", true);
-                IsMoving = true;
-                
+                IsMoving = true;                
             }
 
             //Set Animation transition
             if (Input.GetKey(KeyCode.LeftShift))
             {
-                if (IsSprint != true)
+                if (!IsSprint)
                 {
                     anim.SetBool("IsSprint", true);
                     IsSprint = true;
@@ -123,7 +126,7 @@ public class ThirdPersonMovement : MonoBehaviour
             else
             {
                 //Set Animation transition
-                if (IsSprint == true)
+                if (IsSprint)
                 {
                     anim.SetBool("IsSprint", false);
                     IsSprint = false;
@@ -134,27 +137,14 @@ public class ThirdPersonMovement : MonoBehaviour
 
         }
 
-        
-
-        else if (IsMoving == true)
+        else if (IsMoving)
         {
             anim.SetBool("IsMoving", false);
             IsMoving = false;
            
         }
 
-        MoveAnimation();
-
-        if (Input.GetKeyDown(KeyCode.Space))
-        {           
-            JumpTimeout = 1f;
-            IsGrounded = false;
-            anim.SetBool("IsJumping" , true);
-            IsJumping = true;
-            
-        }
-
-        
+        MoveAnimation();             
 
     }
 
@@ -203,38 +193,57 @@ public class ThirdPersonMovement : MonoBehaviour
                 transform.position.z);
             IsGrounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
                 QueryTriggerInteraction.Ignore);
-            
 
 
-    
-            if (JumpTimeout <= 0)
+        //if (JumpTimeout <= 0)
+        //{
+
+        //anim.SetBool("IsJumping" , false);
+
+            if (IsGrounded)
             {
-               
-               anim.SetBool("IsJumping" , false);
-               
-               if (IsJumping)
-               {
-                 transform.position = new Vector3(transform.position.x , transform.position.y + 0.1f , transform.position.z); 
-                 IsJumping = false;
-               }
-               
-            }   
-
-
-            if (IsJumping)
-            {
-                if (JumpTimeout > 0)
-                {
-                    JumpTimeout -= Time.deltaTime;    
-                }              
-
-                if (JumpTimeout <= 0)
-                {
-                    JumpTimeout = 0;
-                    transform.position = new Vector3(transform.position.x , transform.position.y - 0.1f , transform.position.z); 
-                }              
+                //transform.position = new Vector3(transform.position.x , transform.position.y + 0.1f , transform.position.z); 
+                IsJumping = false;
+                //anim.SetBool("IsJumping", false);
+                IsMoving = true;
+                IsSprint = true;
             }
+
+            if (!IsGrounded)
+            {
+                IsMoving = false;
+                IsSprint = false;
+            }   
+        //}   
+
+        //if (IsJumping)
+        //{
+        //    if (JumpTimeout > 0)
+        //    {
+        //        JumpTimeout -= Time.deltaTime;    
+        //    }              
+
+        //    if (JumpTimeout <= 0)
+        //    {
+        //        JumpTimeout = 0;
+        //        //transform.position = new Vector3(transform.position.x , transform.position.y - 0.1f , transform.position.z); 
+        //    }              
+        //}
+    }
+
+    private void Jump()
+    {
+        if (Input.GetKeyDown(KeyCode.Space) && IsGrounded)
+        { 
+            anim.SetTrigger("IsJumping");
+            IsJumping = true;
+            IsMoving = false;      
         }
 
+        if (anim.GetCurrentAnimatorStateInfo(0).IsName("Jump"))
+        {
+            IsGrounded = false;
+        }
+    }
 }
 
