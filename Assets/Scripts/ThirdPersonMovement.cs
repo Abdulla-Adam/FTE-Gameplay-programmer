@@ -10,11 +10,11 @@ public class ThirdPersonMovement : MonoBehaviour
     private bool IsPunch;
     private bool IsSprint;
     private bool IsJumping;
-    public bool IsGrounded;
-    
+    private bool IsGrounded;
+        
     //Set Up Speed
      private float moveSpeed = 2.5f;
-    [SerializeField] private float WalkSpeed = 2.5f;
+    [SerializeField] private float WalkSpeed = 1f;
     [SerializeField] private float SprintSpeed = 8f;
     [SerializeField] private float velocity = 0f;
     [SerializeField] private float acceleration = 0.1f;
@@ -109,7 +109,7 @@ public class ThirdPersonMovement : MonoBehaviour
             if (!IsMoving)
             {
                 anim.SetBool("IsMoving", true);
-                IsMoving = true;                
+                IsMoving = true;
             }
 
             //Set Animation transition
@@ -141,7 +141,7 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             anim.SetBool("IsMoving", false);
             IsMoving = false;
-           
+            //SFXManager.instance.StopFootSteps();
         }
 
         MoveAnimation();             
@@ -187,48 +187,25 @@ public class ThirdPersonMovement : MonoBehaviour
     }
 
  private void GroundedCheck()
+    {    
+        // set sphere position, with offset
+        Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset,
+            transform.position.z);
+        IsGrounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
+            QueryTriggerInteraction.Ignore);
+
+        if (IsGrounded)
         {
-            // set sphere position, with offset
-            Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset,
-                transform.position.z);
-            IsGrounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
-                QueryTriggerInteraction.Ignore);
+            IsJumping = false;
+            anim.SetBool("IsJumping", false);
+        }
 
-
-        //if (JumpTimeout <= 0)
-        //{
-
-        //anim.SetBool("IsJumping" , false);
-
-            if (IsGrounded)
-            {
-                //transform.position = new Vector3(transform.position.x , transform.position.y + 0.1f , transform.position.z); 
-                IsJumping = false;
-                //anim.SetBool("IsJumping", false);
-                IsMoving = true;
-                IsSprint = true;
-            }
-
-            if (!IsGrounded)
-            {
-                IsMoving = false;
-                IsSprint = false;
-            }   
-        //}   
-
-        //if (IsJumping)
-        //{
-        //    if (JumpTimeout > 0)
-        //    {
-        //        JumpTimeout -= Time.deltaTime;    
-        //    }              
-
-        //    if (JumpTimeout <= 0)
-        //    {
-        //        JumpTimeout = 0;
-        //        //transform.position = new Vector3(transform.position.x , transform.position.y - 0.1f , transform.position.z); 
-        //    }              
-        //}
+        if (!IsGrounded)
+        {
+            IsMoving = false;
+            IsSprint = false;
+        }   
+    
     }
 
     private void Jump()
@@ -245,5 +222,7 @@ public class ThirdPersonMovement : MonoBehaviour
             IsGrounded = false;
         }
     }
+
+    
 }
 
