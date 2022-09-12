@@ -13,7 +13,17 @@ public class UIManager : MonoBehaviour
     public GameObject audioSettingsPanel;
     public GameObject keySettingsPanel;
 
-    
+    public GameObject PushButtonPanel;
+
+    public static UIManager instance;
+
+    private void Awake()
+    {
+        if (instance == null)
+        {
+            instance = this;
+        }
+    }
 
     public void PauseButton()
     {

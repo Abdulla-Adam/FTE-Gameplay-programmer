@@ -6,22 +6,24 @@ public class ThirdPersonMovement : MonoBehaviour
 {
     //Set up Animator
     private Animator anim;
-    private bool IsMoving;
-    private bool IsPunch;
-    private bool IsSprint;
-    private bool IsJumping;
-    private bool IsGrounded;
-        
+    public bool IsMoving;
+    public bool IsPunch;
+    public bool IsSprint;
+    public bool IsJumping;
+    public bool IsGrounded;
+    public bool IsPushing;
+    public bool attachOnce;
+   
     //Set Up Speed
-     private float moveSpeed = 2.5f;
+    private float moveSpeed = 2.5f;
     [SerializeField] private float WalkSpeed = 1f;
     [SerializeField] private float SprintSpeed = 8f;
     [SerializeField] private float velocity = 0f;
     [SerializeField] private float acceleration = 0.1f;
     [SerializeField] private float deceleration = 0.1f;
-    
-    private int velocityHash;
 
+    private int velocityHash;
+    
     //Set Character Controller
     public CharacterController characterController;
     //Set Rotation Smoothness
@@ -31,19 +33,23 @@ public class ThirdPersonMovement : MonoBehaviour
     public Transform cam;
 
     public float GroundedOffset = 0;
-    public float GroundedRadius = 1.7f;    
-    
+    public float GroundedRadius = 1.7f;
+
     public LayerMask GroundLayers;
 
     public static bool IsInputEnabled;
 
- // Start is called before the first frame update
+    public float gravity = -9.8f;
+    Vector3 moveDownVelocity;
+
+    // Start is called before the first frame update
     void Start()
     {
-        IsInputEnabled = true;        
+        IsInputEnabled = true;
         anim = GetComponent<Animator>();
         velocityHash = Animator.StringToHash("Velocity");
-        characterController.detectCollisions = true;
+        characterController.detectCollisions = false;
+        attachOnce = true;
     }
 
     // Update is called once per frame
@@ -57,20 +63,22 @@ public class ThirdPersonMovement : MonoBehaviour
             }
 
             GroundedCheck();
+            ApplyGravity();
             Jump();
-        }             
+            AttachPushObject();
+        }
     }
 
 
     void Move()
-    {        
+    {
         //Getting Keyboard Input
         float Horizontal = Input.GetAxis("Horizontal");
         float Vertical = Input.GetAxis("Vertical");
         //Storing Keyboard Input into a Direction Vector
         Vector3 Direction = new Vector3(Horizontal, 0f, Vertical).normalized;
-        
-        if(Input.GetButton("Fire1"))
+
+        if (Input.GetButton("Fire1"))
         {
             //Set Animation transition
             if (!IsPunch)
@@ -91,7 +99,7 @@ public class ThirdPersonMovement : MonoBehaviour
         }
 
         //Start Movement if Direction Vector has magnitude
-        if (Direction.magnitude >= 0.1f )
+        if (Direction.magnitude >= 0.1f)
         {
             anim.SetBool("IsPunch", false);
             IsPunch = false;
@@ -99,8 +107,12 @@ public class ThirdPersonMovement : MonoBehaviour
             float TargetAngle = Mathf.Atan2(Direction.x, Direction.z) * Mathf.Rad2Deg + cam.eulerAngles.y;
             float smoothAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, TargetAngle, ref turnSmoothVelocity, turnSmoothTime);
 
-            //Set Rotation according to Angle 
-            transform.rotation = Quaternion.Euler(0f, smoothAngle, 0);
+            if (!IsPushing)
+            {
+                //Set Rotation according to Angle 
+                transform.rotation = Quaternion.Euler(0f, smoothAngle, 0);
+            }
+            
 
             //Set Movement in accordance with Camera angle
             Vector3 moveDir = Quaternion.Euler(0f, TargetAngle, 0f) * Vector3.forward;
@@ -119,7 +131,7 @@ public class ThirdPersonMovement : MonoBehaviour
                 {
                     anim.SetBool("IsSprint", true);
                     IsSprint = true;
-                    moveSpeed = SprintSpeed;          
+                    moveSpeed = SprintSpeed;
                 }
             }
 
@@ -131,7 +143,7 @@ public class ThirdPersonMovement : MonoBehaviour
                     anim.SetBool("IsSprint", false);
                     IsSprint = false;
                     moveSpeed = WalkSpeed;
-                    
+
                 }
             }
 
@@ -144,50 +156,79 @@ public class ThirdPersonMovement : MonoBehaviour
             //SFXManager.instance.StopFootSteps();
         }
 
-        MoveAnimation();             
+        MoveAnimation();
 
     }
 
     void MoveAnimation()
     {
         bool movementButtonPressed = Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.D);
-        
-        if (movementButtonPressed && velocity < 1f )
+
+        if (!IsPushing)
         {
-            if (IsMoving && velocity < 0.5f)
+            velocityHash = Animator.StringToHash("Velocity");
+            if (movementButtonPressed && velocity < 1f)
             {
-                // velocity = Time.deltaTime * acceleration;    
-                velocity = Mathf.Lerp(velocity , 0.5f , acceleration);
+                if (IsMoving && velocity < 0.5f)
+                {
+                    // velocity = Time.deltaTime * acceleration;    
+                    velocity = Mathf.Lerp(velocity, 0.5f, acceleration);
+                }
+
+                if (IsSprint)
+                {
+                    // velocity += Time.deltaTime * acceleration;    
+                    velocity = Mathf.Lerp(velocity, 1f, acceleration);
+                }
+
+                if (!IsSprint && velocity >= 0.5f)
+                {
+                    velocity -= Time.deltaTime * deceleration;
+                }
+
             }
-            
-            if (IsSprint)
+
+            if (!movementButtonPressed && velocity > 0f)
             {
-                // velocity += Time.deltaTime * acceleration;    
-                velocity = Mathf.Lerp(velocity , 1f , acceleration);
+                velocity -= Time.deltaTime * deceleration;
             }
-            
-            if (!IsSprint && velocity >= 0.5f)
+
+            if (!movementButtonPressed && velocity < 0f)
             {
-                velocity -= Time.deltaTime * deceleration;                
+                velocity = 0f;
             }
 
         }
 
-        if (!movementButtonPressed && velocity > 0f )
-        {            
-            velocity -= Time.deltaTime * deceleration;                           
-        }
-        
-        if (!movementButtonPressed && velocity < 0f )
+        if (IsPushing)
         {
-            velocity = 0f;
-        }
+            velocityHash = Animator.StringToHash("PushVelocity");
+            if (movementButtonPressed && velocity < 1f)
+            {
+                if (velocity < 1f)
+                {
+                    // velocity = Time.deltaTime * acceleration;    
+                    velocity = Mathf.Lerp(velocity, 1f, acceleration);
+                }
 
-        anim.SetFloat(velocityHash , velocity);
+            }
+
+            if (!movementButtonPressed && velocity > 0f)
+            {
+                velocity -= Time.deltaTime * deceleration;
+            }
+
+            if (!movementButtonPressed && velocity < 0f)
+            {
+                velocity = 0f;
+            }
+        }
+            
+        anim.SetFloat(velocityHash, velocity);
     }
 
- private void GroundedCheck()
-    {    
+    private void GroundedCheck()
+    {
         // set sphere position, with offset
         Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset,
             transform.position.z);
@@ -204,17 +245,17 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             IsMoving = false;
             IsSprint = false;
-        }   
-    
+        }
+
     }
 
     private void Jump()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && IsGrounded)
-        { 
+        if (Input.GetKeyDown(KeyCode.Space) && IsGrounded && UIManager.instance.PushButtonPanel.active == false)
+        {
             anim.SetTrigger("IsJumping");
             IsJumping = true;
-            IsMoving = false;      
+            IsMoving = false;
         }
 
         if (anim.GetCurrentAnimatorStateInfo(0).IsName("Jump"))
@@ -223,6 +264,105 @@ public class ThirdPersonMovement : MonoBehaviour
         }
     }
 
-    
-}
+    public void ApplyGravity()
+    {
+        if (!IsGrounded)
+        {
+            moveDownVelocity.y -= gravity * Time.deltaTime;
+            characterController.Move(moveDownVelocity);
+        }
+    }
+
+
+    private void OnCollisionStay(Collision collision)
+    {
+        if (collision.gameObject.tag == "cube" && IsPushing)
+        {
+            Push(collision.gameObject);
+            DetachPushObject(collision.gameObject);
+        }
+        
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (collision.gameObject.tag == "cube")
+        {
+            IsPushing = false;
+            anim.SetBool("IsPushing", false);
+            UIManager.instance.PushButtonPanel.SetActive(false);
+        }
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+
+        if (collision.gameObject.tag == "cube")
+        {
+            Debug.Log("Cube is collided.");
+
+            if (!IsPushing)
+            {
+                UIManager.instance.PushButtonPanel.SetActive(true);
+                
+            }           
+        }
+    }
+
+    void Push(GameObject collidedObject)
+    {
+        Debug.Log("taking push input");
+
+        if (IsPushing && IsGrounded)
+        {
+            
+            Debug.Log(collidedObject.name);
+
+            collidedObject.transform.SetParent(transform);
+            //collidedObject.transform.parent = transform.parent;
+
+            Rigidbody rigidbody = collidedObject.GetComponent<Rigidbody>();
+
+            if (rigidbody != null)
+            {
+                anim.SetBool("IsPushing", true);
+
+                Vector3 forceDirection = collidedObject.transform.position - transform.position;
+                forceDirection.y = 0f;
+                forceDirection.Normalize();
+
+                rigidbody.AddForceAtPosition(forceDirection * 1f, transform.position, ForceMode.Force);
+            }
+        }
+    }
+
+    public void AttachPushObject()
+    {
+        if (UIManager.instance.PushButtonPanel.active == true )
+        {
+            if (Input.GetKeyDown(KeyCode.Space) && attachOnce)
+            {
+                UIManager.instance.PushButtonPanel.SetActive(false);
+                IsPushing = true;                
+                anim.SetBool("IsPushing", true);
+                attachOnce = false;
+            }
+        }
+    }
+
+    public void DetachPushObject(GameObject pushableObject)
+    {
+        if (IsPushing)
+        {
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                attachOnce = true;
+                IsPushing = false;
+                pushableObject.transform.parent = null;
+            }
+        }
+    }
+        
+ }
+
 
