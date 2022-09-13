@@ -185,7 +185,6 @@ public class ThirdPersonMovement : MonoBehaviour
                 {
                     velocity -= Time.deltaTime * deceleration;
                 }
-
             }
 
             if (!movementButtonPressed && velocity > 0f)
@@ -200,8 +199,10 @@ public class ThirdPersonMovement : MonoBehaviour
 
         }
 
+        //For Pushing animation
         if (IsPushing)
         {
+            //PushVelocity is parameter for Push animation blend tree.
             velocityHash = Animator.StringToHash("PushVelocity");
             if (movementButtonPressed && velocity < 1f)
             {
@@ -264,6 +265,7 @@ public class ThirdPersonMovement : MonoBehaviour
         }
     }
 
+    //Manually applying gravity on Player as character controller does not apply Physics.
     public void ApplyGravity()
     {
         if (!IsGrounded)
@@ -286,10 +288,8 @@ public class ThirdPersonMovement : MonoBehaviour
 
     private void OnCollisionExit(Collision collision)
     {
-        if (collision.gameObject.tag == "cube")
+        if (collision.gameObject.tag == "cube" && attachOnce)
         {
-            IsPushing = false;
-            anim.SetBool("IsPushing", false);
             UIManager.instance.PushButtonPanel.SetActive(false);
         }
     }
@@ -301,10 +301,9 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             Debug.Log("Cube is collided.");
 
-            if (!IsPushing)
+            if (!IsPushing && attachOnce) 
             {
-                UIManager.instance.PushButtonPanel.SetActive(true);
-                
+                UIManager.instance.PushButtonPanel.SetActive(true);                
             }           
         }
     }
@@ -313,26 +312,15 @@ public class ThirdPersonMovement : MonoBehaviour
     {
         Debug.Log("taking push input");
 
-        if (IsPushing && IsGrounded)
+        if (IsPushing && IsGrounded && attachOnce )
         {
             
-            Debug.Log(collidedObject.name);
-
+            Debug.Log("Calling Push");
+            transform.LookAt(collidedObject.transform);
+            Vector3.MoveTowards(transform.position , collidedObject.transform.position , 0.5f);
             collidedObject.transform.SetParent(transform);
-            //collidedObject.transform.parent = transform.parent;
-
-            Rigidbody rigidbody = collidedObject.GetComponent<Rigidbody>();
-
-            if (rigidbody != null)
-            {
-                anim.SetBool("IsPushing", true);
-
-                Vector3 forceDirection = collidedObject.transform.position - transform.position;
-                forceDirection.y = 0f;
-                forceDirection.Normalize();
-
-                rigidbody.AddForceAtPosition(forceDirection * 1f, transform.position, ForceMode.Force);
-            }
+            attachOnce = false;
+           
         }
     }
 
@@ -340,12 +328,11 @@ public class ThirdPersonMovement : MonoBehaviour
     {
         if (UIManager.instance.PushButtonPanel.active == true )
         {
-            if (Input.GetKeyDown(KeyCode.Space) && attachOnce)
+            if (Input.GetKeyDown(KeyCode.Space))
             {
                 UIManager.instance.PushButtonPanel.SetActive(false);
                 IsPushing = true;                
                 anim.SetBool("IsPushing", true);
-                attachOnce = false;
             }
         }
     }
@@ -358,6 +345,7 @@ public class ThirdPersonMovement : MonoBehaviour
             {
                 attachOnce = true;
                 IsPushing = false;
+                anim.SetBool("IsPushing", false);
                 pushableObject.transform.parent = null;
             }
         }
