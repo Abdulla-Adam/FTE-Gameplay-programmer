@@ -59,6 +59,7 @@
     <Compile Include="Assets\Scripts\UIManager.cs" />
     <Compile Include="Assets\Scripts\SFXManager.cs" />
     <Compile Include="Assets\Scripts\ThirdPersonMovement.cs" />
+    <Compile Include="Assets\Scripts\ClimbLadder.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

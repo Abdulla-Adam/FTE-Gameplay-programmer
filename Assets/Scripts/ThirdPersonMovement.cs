@@ -296,7 +296,6 @@ public class ThirdPersonMovement : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
-
         if (collision.gameObject.tag == "cube")
         {
             Debug.Log("Cube is collided.");
@@ -305,6 +304,36 @@ public class ThirdPersonMovement : MonoBehaviour
             {
                 UIManager.instance.PushButtonPanel.SetActive(true);                
             }           
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.tag == "ladder")
+        {
+            Debug.Log("Ladder is colliding");
+
+            //Setting position and rotation of player according to ladder.
+            transform.position = new Vector3(other.gameObject.transform.position.x, transform.position.y, transform.position.z);
+            transform.eulerAngles = new Vector3(transform.eulerAngles.x, other.gameObject.transform.eulerAngles.y, transform.eulerAngles.z);
+
+            IsMoving = false;
+            anim.SetBool("IsMoving", false);
+            IsGrounded = false;
+            anim.SetBool("IsClimbing", true);
+            
+          
+            GetComponent<ClimbLadder>().enabled = true;
+            this.enabled = false;
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.tag == "ladder")
+        {
+            IsMoving = true;
+            anim.SetBool("IsClimbing", false);
         }
     }
 
