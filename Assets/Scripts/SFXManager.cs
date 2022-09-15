@@ -8,6 +8,9 @@ public class SFXManager : MonoBehaviour
     public AudioClip[] audioClips;
     public AudioClip landingClip;
     public AudioClip clickClip;
+    public AudioClip climbingSound;
+    public AudioClip pushingSound;
+
    
     private void Start()
     {
@@ -30,4 +33,13 @@ public class SFXManager : MonoBehaviour
         audioSource.PlayOneShot(clickClip);
     }
 
+    public void ClimbSfx()
+    {
+        audioSource.PlayOneShot(climbingSound);
+    }
+
+    public void PushingSfx()
+    {
+        audioSource.PlayOneShot(pushingSound);
+    }
 }

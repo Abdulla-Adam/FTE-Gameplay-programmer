@@ -57,9 +57,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\UIManager.cs" />
+    <Compile Include="Assets\Scripts\SelfDestruct.cs" />
+    <Compile Include="Assets\Scripts\ClimbLadder.cs" />
     <Compile Include="Assets\Scripts\SFXManager.cs" />
     <Compile Include="Assets\Scripts\ThirdPersonMovement.cs" />
-    <Compile Include="Assets\Scripts\ClimbLadder.cs" />
+    <Compile Include="Assets\Scripts\VFXManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

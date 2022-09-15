@@ -254,15 +254,25 @@ public class ThirdPersonMovement : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Space) && IsGrounded && UIManager.instance.PushButtonPanel.active == false)
         {
+            if (IsSprint)
+            {
+                anim.SetFloat("JumpVelocity", 1);
+            }
+
+            else
+            {
+                anim.SetFloat("JumpVelocity", 0);
+            }
+
             anim.SetTrigger("IsJumping");
             IsJumping = true;
             IsMoving = false;
         }
 
-        if (anim.GetCurrentAnimatorStateInfo(0).IsName("Jump"))
-        {
-            IsGrounded = false;
-        }
+        //if (anim.GetCurrentAnimatorStateInfo(0).IsName("Jump") )
+        //{
+        //    IsGrounded = false;
+        //}
     }
 
     //Manually applying gravity on Player as character controller does not apply Physics.
