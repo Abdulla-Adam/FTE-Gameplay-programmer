@@ -42,6 +42,8 @@ public class ThirdPersonMovement : MonoBehaviour
     public float gravity = -9.8f;
     Vector3 moveDownVelocity;
 
+    public float pushingSpeed;
+    
     // Start is called before the first frame update
     void Start()
     {
@@ -59,7 +61,15 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             if (IsGrounded)
             {
-                Move();
+                if (IsPushing)
+                {
+                    PushAndMove();
+                }
+                else
+                {
+                    Move();
+                }
+                
             }
 
             GroundedCheck();
@@ -106,13 +116,9 @@ public class ThirdPersonMovement : MonoBehaviour
             //Calculate Movement direction angle and set Smooth
             float TargetAngle = Mathf.Atan2(Direction.x, Direction.z) * Mathf.Rad2Deg + cam.eulerAngles.y;
             float smoothAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, TargetAngle, ref turnSmoothVelocity, turnSmoothTime);
-
-            if (!IsPushing)
-            {
-                //Set Rotation according to Angle 
-                transform.rotation = Quaternion.Euler(0f, smoothAngle, 0);
-            }
-            
+            //Set Rotation according to Angle 
+            transform.rotation = Quaternion.Euler(0f, smoothAngle, 0);
+         
 
             //Set Movement in accordance with Camera angle
             Vector3 moveDir = Quaternion.Euler(0f, TargetAngle, 0f) * Vector3.forward;
@@ -162,7 +168,7 @@ public class ThirdPersonMovement : MonoBehaviour
 
     void MoveAnimation()
     {
-        bool movementButtonPressed = Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.D);
+        bool movementButtonPressed = IsPushing ? Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.S) : Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.D);
 
         if (!IsPushing)
         {
@@ -226,6 +232,21 @@ public class ThirdPersonMovement : MonoBehaviour
         }
             
         anim.SetFloat(velocityHash, velocity);
+    }
+
+    void PushAndMove()
+    {
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+        {
+            transform.Translate(Vector3.forward * pushingSpeed);
+        }
+        
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+        {
+            transform.Translate(Vector3.back * pushingSpeed);
+        }
+
+        MoveAnimation(); 
     }
 
     private void GroundedCheck()
@@ -308,8 +329,7 @@ public class ThirdPersonMovement : MonoBehaviour
     {
         if (collision.gameObject.tag == "cube")
         {
-            Debug.Log("Cube is collided.");
-
+            
             if (!IsPushing && attachOnce) 
             {
                 UIManager.instance.PushButtonPanel.SetActive(true);                
@@ -321,8 +341,6 @@ public class ThirdPersonMovement : MonoBehaviour
     {
         if (other.tag == "ladder")
         {
-            Debug.Log("Ladder is colliding");
-
             //Setting position and rotation of player according to ladder.
             transform.position = new Vector3(other.gameObject.transform.position.x, transform.position.y, transform.position.z);
             transform.eulerAngles = new Vector3(transform.eulerAngles.x, other.gameObject.transform.eulerAngles.y, transform.eulerAngles.z);
@@ -330,8 +348,7 @@ public class ThirdPersonMovement : MonoBehaviour
             IsMoving = false;
             anim.SetBool("IsMoving", false);
             IsGrounded = false;
-            anim.SetBool("IsClimbing", true);
-            
+            anim.SetBool("IsClimbing", true);            
           
             GetComponent<ClimbLadder>().enabled = true;
             this.enabled = false;
@@ -349,13 +366,11 @@ public class ThirdPersonMovement : MonoBehaviour
 
     void Push(GameObject collidedObject)
     {
-        Debug.Log("taking push input");
-
+        
         if (IsPushing && IsGrounded && attachOnce )
         {
-            
-            Debug.Log("Calling Push");
             transform.LookAt(collidedObject.transform);
+            transform.eulerAngles = new Vector3(0, transform.eulerAngles.y, 0);
             Vector3.MoveTowards(transform.position , collidedObject.transform.position , 0.5f);
             collidedObject.transform.SetParent(transform);
             attachOnce = false;

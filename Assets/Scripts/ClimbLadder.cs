@@ -6,8 +6,10 @@ public class ClimbLadder : MonoBehaviour
 {
     Animator anim;
     CharacterController characterController;
-    public int climbVelocityHash;
-    public float climbVelocity;
+    private int climbVelocityHash;
+    private float climbVelocity;
+
+    public float climbSpeedDivisor;
 
     // Start is called before the first frame update
     void Start()
@@ -42,7 +44,7 @@ public class ClimbLadder : MonoBehaviour
         {
             if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W))
             {
-                characterController.transform.position += Vector3.up / 10f;
+                characterController.transform.position += Vector3.up / climbSpeedDivisor;
 
                 if (climbVelocity <= 0)
                 {
@@ -52,8 +54,7 @@ public class ClimbLadder : MonoBehaviour
 
             if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S))
             {
-
-                characterController.transform.position += Vector3.down / 10f;
+                characterController.transform.position += Vector3.down / climbSpeedDivisor;
 
                 if (climbVelocity <= 0)
                 {
@@ -65,8 +66,6 @@ public class ClimbLadder : MonoBehaviour
             {
                 climbVelocity = 0;
             }
-
-
 
             anim.SetFloat(climbVelocityHash, climbVelocity);
         }
