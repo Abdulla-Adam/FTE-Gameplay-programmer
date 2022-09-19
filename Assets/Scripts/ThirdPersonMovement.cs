@@ -43,6 +43,9 @@ public class ThirdPersonMovement : MonoBehaviour
     Vector3 moveDownVelocity;
 
     public float pushingSpeed;
+
+    [SerializeField]
+    private GameObject currentPushable;
     
     // Start is called before the first frame update
     void Start()
@@ -52,6 +55,15 @@ public class ThirdPersonMovement : MonoBehaviour
         velocityHash = Animator.StringToHash("Velocity");
         characterController.detectCollisions = false;
         attachOnce = true;
+    }
+
+    private bool CheckAnglesForPush()
+    {
+        if(gameObject.transform.rotation.y > 300 && gameObject.transform.rotation.y < 40)
+            return true;
+            
+        return false;
+        //if(gameObject.transform.rotation.y)
     }
 
     // Update is called once per frame
@@ -238,12 +250,21 @@ public class ThirdPersonMovement : MonoBehaviour
     {
         if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
         {
-            transform.Translate(Vector3.forward * pushingSpeed);
+            //transform.Translate(Vector3.forward * pushingSpeed);
+            currentPushable.GetComponent<Rigidbody>().AddForce(Vector3.forward * 1f );
+            //currentPushable.gameObject.GetComponent<Rigidbody>().MovePosition(Vector3.forward * 2f);
+            gameObject.GetComponent<CharacterController>().SimpleMove(Vector3.forward * 1f);
+            //currentPushable.transform.Translate(Vector3.forward *0.5f);
+
         }
         
         if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
         {
-            transform.Translate(Vector3.back * pushingSpeed);
+            // transform.Translate(Vector3.back * pushingSpeed);
+            //currentPushable.transform.Translate(Vector3.back *0.5f);
+            currentPushable.GetComponent<Rigidbody>().AddForce(Vector3.back * 5f );
+            gameObject.GetComponent<CharacterController>().SimpleMove(Vector3.back * 1f);
+            //currentPushable.gameObject.GetComponent<Rigidbody>().MovePosition(Vector3.back * 2f);
         }
 
         MoveAnimation(); 
@@ -323,6 +344,8 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             UIManager.instance.PushButtonPanel.SetActive(false);
         }
+
+
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -332,7 +355,7 @@ public class ThirdPersonMovement : MonoBehaviour
             
             if (!IsPushing && attachOnce) 
             {
-                UIManager.instance.PushButtonPanel.SetActive(true);                
+                UIManager.instance.PushButtonPanel.SetActive(true);               
             }           
         }
     }
@@ -353,6 +376,15 @@ public class ThirdPersonMovement : MonoBehaviour
             GetComponent<ClimbLadder>().enabled = true;
             this.enabled = false;
         }
+
+        if(other.gameObject.name.Contains("Objective"))
+        {
+            Debug.Log("ObjectiveTrigger"+ other.gameObject.name);
+            UIManager.instance.UpdateObjectivePopup();
+            UIManager.instance.ShowObjectivePopup();
+            LevelManager.Instance.CheckLevelUpdate(other.gameObject.name);
+            
+        }
     }
 
     private void OnTriggerExit(Collider other)
@@ -362,6 +394,11 @@ public class ThirdPersonMovement : MonoBehaviour
             IsMoving = true;
             anim.SetBool("IsClimbing", false);
         }
+
+        if(other.name.Contains("Objective"))
+        {
+            UIManager.instance.CloseObjectivePopup();
+        }
     }
 
     void Push(GameObject collidedObject)
@@ -370,9 +407,13 @@ public class ThirdPersonMovement : MonoBehaviour
         if (IsPushing && IsGrounded && attachOnce )
         {
             transform.LookAt(collidedObject.transform);
-            transform.eulerAngles = new Vector3(0, transform.eulerAngles.y, 0);
-            Vector3.MoveTowards(transform.position , collidedObject.transform.position , 0.5f);
-            collidedObject.transform.SetParent(transform);
+            transform.eulerAngles = new Vector3(0, 0, 0);
+            Vector3.MoveTowards(transform.position , /* collidedObject.transform.position */ Vector3.forward , 0.5f * Time.deltaTime);
+            // collidedObject.GetComponent<Rigidbody>().AddForce(new Vector3(0, 0, 5)*5f);
+            //collidedObject.transform.SetParent(transform);
+            currentPushable = collidedObject;
+            currentPushable.GetComponent<Rigidbody>().constraints &= ~RigidbodyConstraints.FreezePositionZ;
+
             attachOnce = false;
            
         }
@@ -384,6 +425,7 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             if (Input.GetKeyDown(KeyCode.Space))
             {
+
                 UIManager.instance.PushButtonPanel.SetActive(false);
                 IsPushing = true;                
                 anim.SetBool("IsPushing", true);
@@ -400,6 +442,7 @@ public class ThirdPersonMovement : MonoBehaviour
                 attachOnce = true;
                 IsPushing = false;
                 anim.SetBool("IsPushing", false);
+                currentPushable.GetComponent<Rigidbody>().constraints = RigidbodyConstraints.FreezePositionZ;
                 pushableObject.transform.parent = null;
             }
         }

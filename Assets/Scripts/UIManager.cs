@@ -15,6 +15,10 @@ public class UIManager : MonoBehaviour
 
     public GameObject PushButtonPanel;
 
+    public GameObject ObjectivePopup;
+
+    public Text ObjectivePopupText;
+
     public static UIManager instance;
 
     private void Awake()
@@ -23,6 +27,25 @@ public class UIManager : MonoBehaviour
         {
             instance = this;
         }
+    }
+
+
+    public void UpdateObjectivePopup()
+    {
+        int CurrentLevel = LevelManager.Instance.CurrentLevel;
+        int CurrentObjective = LevelManager.Instance.CurrentObjective;
+        ObjectivePopupText.text = LevelManager.Instance.Levels[CurrentLevel].Objectives[CurrentObjective].ObjectiveCompletionText;
+
+    }
+
+    public void ShowObjectivePopup()
+    {
+        ObjectivePopup.SetActive(true);
+    }
+
+    public void CloseObjectivePopup()
+    {
+        ObjectivePopup.SetActive(false);
     }
 
     public void PauseButton()
