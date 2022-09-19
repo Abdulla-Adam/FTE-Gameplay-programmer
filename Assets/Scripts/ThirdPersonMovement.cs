@@ -6,22 +6,24 @@ public class ThirdPersonMovement : MonoBehaviour
 {
     //Set up Animator
     private Animator anim;
-    private bool IsMoving;
-    private bool IsPunch;
-    private bool IsSprint;
-    private bool IsJumping;
+    public bool IsMoving;
+    public bool IsPunch;
+    public bool IsSprint;
+    public bool IsJumping;
     public bool IsGrounded;
-    
+    public bool IsPushing;
+    public bool attachOnce;
+   
     //Set Up Speed
-     private float moveSpeed = 2.5f;
-    [SerializeField] private float WalkSpeed = 2.5f;
+    private float moveSpeed = 2.5f;
+    [SerializeField] private float WalkSpeed = 1f;
     [SerializeField] private float SprintSpeed = 8f;
     [SerializeField] private float velocity = 0f;
     [SerializeField] private float acceleration = 0.1f;
     [SerializeField] private float deceleration = 0.1f;
-    
-    private int velocityHash;
 
+    private int velocityHash;
+    
     //Set Character Controller
     public CharacterController characterController;
     //Set Rotation Smoothness
@@ -31,19 +33,37 @@ public class ThirdPersonMovement : MonoBehaviour
     public Transform cam;
 
     public float GroundedOffset = 0;
-    public float GroundedRadius = 1.7f;    
-    
+    public float GroundedRadius = 1.7f;
+
     public LayerMask GroundLayers;
 
     public static bool IsInputEnabled;
 
- // Start is called before the first frame update
+    public float gravity = -9.8f;
+    Vector3 moveDownVelocity;
+
+    public float pushingSpeed;
+
+    [SerializeField]
+    private GameObject currentPushable;
+    
+    // Start is called before the first frame update
     void Start()
     {
-        IsInputEnabled = true;        
+        IsInputEnabled = true;
         anim = GetComponent<Animator>();
         velocityHash = Animator.StringToHash("Velocity");
-        characterController.detectCollisions = true;
+        characterController.detectCollisions = false;
+        attachOnce = true;
+    }
+
+    private bool CheckAnglesForPush()
+    {
+        if(gameObject.transform.rotation.y > 300 && gameObject.transform.rotation.y < 40)
+            return true;
+            
+        return false;
+        //if(gameObject.transform.rotation.y)
     }
 
     // Update is called once per frame
@@ -53,24 +73,34 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             if (IsGrounded)
             {
-                Move();
+                if (IsPushing)
+                {
+                    PushAndMove();
+                }
+                else
+                {
+                    Move();
+                }
+                
             }
 
             GroundedCheck();
+            ApplyGravity();
             Jump();
-        }             
+            AttachPushObject();
+        }
     }
 
 
     void Move()
-    {        
+    {
         //Getting Keyboard Input
         float Horizontal = Input.GetAxis("Horizontal");
         float Vertical = Input.GetAxis("Vertical");
         //Storing Keyboard Input into a Direction Vector
         Vector3 Direction = new Vector3(Horizontal, 0f, Vertical).normalized;
-        
-        if(Input.GetButton("Fire1"))
+
+        if (Input.GetButton("Fire1"))
         {
             //Set Animation transition
             if (!IsPunch)
@@ -91,16 +121,16 @@ public class ThirdPersonMovement : MonoBehaviour
         }
 
         //Start Movement if Direction Vector has magnitude
-        if (Direction.magnitude >= 0.1f )
+        if (Direction.magnitude >= 0.1f)
         {
             anim.SetBool("IsPunch", false);
             IsPunch = false;
             //Calculate Movement direction angle and set Smooth
             float TargetAngle = Mathf.Atan2(Direction.x, Direction.z) * Mathf.Rad2Deg + cam.eulerAngles.y;
             float smoothAngle = Mathf.SmoothDampAngle(transform.eulerAngles.y, TargetAngle, ref turnSmoothVelocity, turnSmoothTime);
-
             //Set Rotation according to Angle 
             transform.rotation = Quaternion.Euler(0f, smoothAngle, 0);
+         
 
             //Set Movement in accordance with Camera angle
             Vector3 moveDir = Quaternion.Euler(0f, TargetAngle, 0f) * Vector3.forward;
@@ -109,7 +139,7 @@ public class ThirdPersonMovement : MonoBehaviour
             if (!IsMoving)
             {
                 anim.SetBool("IsMoving", true);
-                IsMoving = true;                
+                IsMoving = true;
             }
 
             //Set Animation transition
@@ -119,7 +149,7 @@ public class ThirdPersonMovement : MonoBehaviour
                 {
                     anim.SetBool("IsSprint", true);
                     IsSprint = true;
-                    moveSpeed = SprintSpeed;          
+                    moveSpeed = SprintSpeed;
                 }
             }
 
@@ -131,7 +161,7 @@ public class ThirdPersonMovement : MonoBehaviour
                     anim.SetBool("IsSprint", false);
                     IsSprint = false;
                     moveSpeed = WalkSpeed;
-                    
+
                 }
             }
 
@@ -141,109 +171,283 @@ public class ThirdPersonMovement : MonoBehaviour
         {
             anim.SetBool("IsMoving", false);
             IsMoving = false;
-           
+            //SFXManager.instance.StopFootSteps();
         }
 
-        MoveAnimation();             
+        MoveAnimation();
 
     }
 
     void MoveAnimation()
     {
-        bool movementButtonPressed = Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.D);
-        
-        if (movementButtonPressed && velocity < 1f )
+        bool movementButtonPressed = IsPushing ? Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.S) : Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.D);
+
+        if (!IsPushing)
         {
-            if (IsMoving && velocity < 0.5f)
+            velocityHash = Animator.StringToHash("Velocity");
+            if (movementButtonPressed && velocity < 1f)
             {
-                // velocity = Time.deltaTime * acceleration;    
-                velocity = Mathf.Lerp(velocity , 0.5f , acceleration);
+                if (IsMoving && velocity < 0.5f)
+                {
+                    // velocity = Time.deltaTime * acceleration;    
+                    velocity = Mathf.Lerp(velocity, 0.5f, acceleration);
+                }
+
+                if (IsSprint)
+                {
+                    // velocity += Time.deltaTime * acceleration;    
+                    velocity = Mathf.Lerp(velocity, 1f, acceleration);
+                }
+
+                if (!IsSprint && velocity >= 0.5f)
+                {
+                    velocity -= Time.deltaTime * deceleration;
+                }
             }
-            
-            if (IsSprint)
+
+            if (!movementButtonPressed && velocity > 0f)
             {
-                // velocity += Time.deltaTime * acceleration;    
-                velocity = Mathf.Lerp(velocity , 1f , acceleration);
+                velocity -= Time.deltaTime * deceleration;
             }
-            
-            if (!IsSprint && velocity >= 0.5f)
+
+            if (!movementButtonPressed && velocity < 0f)
             {
-                velocity -= Time.deltaTime * deceleration;                
+                velocity = 0f;
             }
 
         }
 
-        if (!movementButtonPressed && velocity > 0f )
-        {            
-            velocity -= Time.deltaTime * deceleration;                           
-        }
-        
-        if (!movementButtonPressed && velocity < 0f )
+        //For Pushing animation
+        if (IsPushing)
         {
-            velocity = 0f;
-        }
+            //PushVelocity is parameter for Push animation blend tree.
+            velocityHash = Animator.StringToHash("PushVelocity");
+            if (movementButtonPressed && velocity < 1f)
+            {
+                if (velocity < 1f)
+                {
+                    // velocity = Time.deltaTime * acceleration;    
+                    velocity = Mathf.Lerp(velocity, 1f, acceleration);
+                }
 
-        anim.SetFloat(velocityHash , velocity);
+            }
+
+            if (!movementButtonPressed && velocity > 0f)
+            {
+                velocity -= Time.deltaTime * deceleration;
+            }
+
+            if (!movementButtonPressed && velocity < 0f)
+            {
+                velocity = 0f;
+            }
+        }
+            
+        anim.SetFloat(velocityHash, velocity);
     }
 
- private void GroundedCheck()
+    void PushAndMove()
+    {
+        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
         {
-            // set sphere position, with offset
-            Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset,
-                transform.position.z);
-            IsGrounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
-                QueryTriggerInteraction.Ignore);
+            //transform.Translate(Vector3.forward * pushingSpeed);
+            currentPushable.GetComponent<Rigidbody>().AddForce(Vector3.forward * 1f );
+            //currentPushable.gameObject.GetComponent<Rigidbody>().MovePosition(Vector3.forward * 2f);
+            gameObject.GetComponent<CharacterController>().SimpleMove(Vector3.forward * 1f);
+            //currentPushable.transform.Translate(Vector3.forward *0.5f);
 
+        }
+        
+        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+        {
+            // transform.Translate(Vector3.back * pushingSpeed);
+            //currentPushable.transform.Translate(Vector3.back *0.5f);
+            currentPushable.GetComponent<Rigidbody>().AddForce(Vector3.back * 5f );
+            gameObject.GetComponent<CharacterController>().SimpleMove(Vector3.back * 1f);
+            //currentPushable.gameObject.GetComponent<Rigidbody>().MovePosition(Vector3.back * 2f);
+        }
 
-        //if (JumpTimeout <= 0)
-        //{
+        MoveAnimation(); 
+    }
 
-        //anim.SetBool("IsJumping" , false);
+    private void GroundedCheck()
+    {
+        // set sphere position, with offset
+        Vector3 spherePosition = new Vector3(transform.position.x, transform.position.y - GroundedOffset,
+            transform.position.z);
+        IsGrounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
+            QueryTriggerInteraction.Ignore);
 
-            if (IsGrounded)
-            {
-                //transform.position = new Vector3(transform.position.x , transform.position.y + 0.1f , transform.position.z); 
-                IsJumping = false;
-                //anim.SetBool("IsJumping", false);
-                IsMoving = true;
-                IsSprint = true;
-            }
+        if (IsGrounded)
+        {
+            IsJumping = false;
+            anim.SetBool("IsJumping", false);
+        }
 
-            if (!IsGrounded)
-            {
-                IsMoving = false;
-                IsSprint = false;
-            }   
-        //}   
+        if (!IsGrounded)
+        {
+            IsMoving = false;
+            IsSprint = false;
+        }
 
-        //if (IsJumping)
-        //{
-        //    if (JumpTimeout > 0)
-        //    {
-        //        JumpTimeout -= Time.deltaTime;    
-        //    }              
-
-        //    if (JumpTimeout <= 0)
-        //    {
-        //        JumpTimeout = 0;
-        //        //transform.position = new Vector3(transform.position.x , transform.position.y - 0.1f , transform.position.z); 
-        //    }              
-        //}
     }
 
     private void Jump()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && IsGrounded)
-        { 
+        if (Input.GetKeyDown(KeyCode.Space) && IsGrounded && UIManager.instance.PushButtonPanel.active == false)
+        {
+            if (IsSprint)
+            {
+                anim.SetFloat("JumpVelocity", 1);
+            }
+
+            else
+            {
+                anim.SetFloat("JumpVelocity", 0);
+            }
+
             anim.SetTrigger("IsJumping");
             IsJumping = true;
-            IsMoving = false;      
+            IsMoving = false;
         }
 
-        if (anim.GetCurrentAnimatorStateInfo(0).IsName("Jump"))
+        //if (anim.GetCurrentAnimatorStateInfo(0).IsName("Jump") )
+        //{
+        //    IsGrounded = false;
+        //}
+    }
+
+    //Manually applying gravity on Player as character controller does not apply Physics.
+    public void ApplyGravity()
+    {
+        if (!IsGrounded)
         {
-            IsGrounded = false;
+            moveDownVelocity.y -= gravity * Time.deltaTime;
+            characterController.Move(moveDownVelocity);
         }
     }
-}
+
+
+    private void OnCollisionStay(Collision collision)
+    {
+        if (collision.gameObject.tag == "cube" && IsPushing)
+        {
+            Push(collision.gameObject);
+            DetachPushObject(collision.gameObject);
+        }
+        
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (collision.gameObject.tag == "cube" && attachOnce)
+        {
+            UIManager.instance.PushButtonPanel.SetActive(false);
+        }
+
+
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.tag == "cube")
+        {
+            
+            if (!IsPushing && attachOnce) 
+            {
+                UIManager.instance.PushButtonPanel.SetActive(true);               
+            }           
+        }
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.tag == "ladder")
+        {
+            //Setting position and rotation of player according to ladder.
+            transform.position = new Vector3(other.gameObject.transform.position.x, transform.position.y, transform.position.z);
+            transform.eulerAngles = new Vector3(transform.eulerAngles.x, other.gameObject.transform.eulerAngles.y, transform.eulerAngles.z);
+
+            IsMoving = false;
+            anim.SetBool("IsMoving", false);
+            IsGrounded = false;
+            anim.SetBool("IsClimbing", true);            
+          
+            GetComponent<ClimbLadder>().enabled = true;
+            this.enabled = false;
+        }
+
+        if(other.gameObject.name.Contains("Objective"))
+        {
+            Debug.Log("ObjectiveTrigger"+ other.gameObject.name);
+            UIManager.instance.UpdateObjectivePopup();
+            UIManager.instance.ShowObjectivePopup();
+            LevelManager.Instance.CheckLevelUpdate(other.gameObject.name);
+            
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.tag == "ladder")
+        {
+            IsMoving = true;
+            anim.SetBool("IsClimbing", false);
+        }
+
+        if(other.name.Contains("Objective"))
+        {
+            UIManager.instance.CloseObjectivePopup();
+        }
+    }
+
+    void Push(GameObject collidedObject)
+    {
+        
+        if (IsPushing && IsGrounded && attachOnce )
+        {
+            transform.LookAt(collidedObject.transform);
+            transform.eulerAngles = new Vector3(0, 0, 0);
+            Vector3.MoveTowards(transform.position , /* collidedObject.transform.position */ Vector3.forward , 0.5f * Time.deltaTime);
+            // collidedObject.GetComponent<Rigidbody>().AddForce(new Vector3(0, 0, 5)*5f);
+            //collidedObject.transform.SetParent(transform);
+            currentPushable = collidedObject;
+            currentPushable.GetComponent<Rigidbody>().constraints &= ~RigidbodyConstraints.FreezePositionZ;
+
+            attachOnce = false;
+           
+        }
+    }
+
+    public void AttachPushObject()
+    {
+        if (UIManager.instance.PushButtonPanel.active == true )
+        {
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+
+                UIManager.instance.PushButtonPanel.SetActive(false);
+                IsPushing = true;                
+                anim.SetBool("IsPushing", true);
+            }
+        }
+    }
+
+    public void DetachPushObject(GameObject pushableObject)
+    {
+        if (IsPushing)
+        {
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                attachOnce = true;
+                IsPushing = false;
+                anim.SetBool("IsPushing", false);
+                currentPushable.GetComponent<Rigidbody>().constraints = RigidbodyConstraints.FreezePositionZ;
+                pushableObject.transform.parent = null;
+            }
+        }
+    }
+        
+ }
+
 
